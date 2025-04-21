@@ -1,15 +1,13 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { User } from '@/types';
 import { 
-  User, 
-  onAuthStateChanged, 
-  createUserWithEmailAndPassword, 
-  signInWithEmailAndPassword, 
-  signOut,
-  GoogleAuthProvider,
-  signInWithPopup,
-  updateProfile
-} from 'firebase/auth';
-import { auth } from '@/lib/firebase';
+  signIn, 
+  signUp, 
+  signOut, 
+  signInWithGoogle,
+  updateProfile,
+  onAuthStateChanged 
+} from '@/lib/authProvider';
 
 interface AuthContextType {
   user: User | null;
@@ -28,8 +26,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged((user) => {
       setUser(user);
+      
+      // Store user ID in localStorage for API authentication
+      if (user) {
+        localStorage.setItem('uid', user.uid);
+      } else {
+        localStorage.removeItem('uid');
+      }
+      
       setLoading(false);
     });
 
@@ -38,7 +44,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signup = async (email: string, password: string) => {
     try {
-      await createUserWithEmailAndPassword(auth, email, password);
+      await signUp(email, password);
     } catch (error) {
       console.error('Error signing up:', error);
       throw error;
@@ -47,7 +53,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (email: string, password: string) => {
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      await signIn(email, password);
     } catch (error) {
       console.error('Error logging in:', error);
       throw error;
@@ -56,7 +62,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     try {
-      await signOut(auth);
+      await signOut();
+      localStorage.removeItem('uid'); // Also clear from localStorage
     } catch (error) {
       console.error('Error logging out:', error);
       throw error;
@@ -65,8 +72,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const loginWithGoogle = async () => {
     try {
-      const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
+      await signInWithGoogle();
     } catch (error) {
       console.error('Error with Google login:', error);
       throw error;
@@ -75,12 +81,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const updateUserProfile = async (displayName: string) => {
     try {
-      if (auth.currentUser) {
-        await updateProfile(auth.currentUser, {
-          displayName: displayName
-        });
-        // Force refresh the user
-        setUser({ ...auth.currentUser });
+      if (user) {
+        await updateProfile(user.uid, displayName);
+        // Force refresh the user data on next state change
       } else {
         throw new Error('No user logged in');
       }

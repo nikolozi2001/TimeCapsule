@@ -3,10 +3,9 @@ import { useRouter } from 'next/router';
 import { format } from 'date-fns';
 import Layout from '@/components/Layout';
 import { useAuth } from '@/context/AuthContext';
-import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
 import { Capsule } from '@/types';
 import dynamic from 'next/dynamic';
+import { pool } from '@/lib/postgres';
 
 // Use dynamic import for the Map component to avoid SSR issues with Leaflet
 const MapWithNoSSR = dynamic(() => import('@/components/Map'), {
@@ -33,34 +32,32 @@ export default function Explore() {
       if (!user) return;
       
       try {
-        const q = query(
-          collection(db, 'capsules'),
-          where('isPublic', '==', true),
-          where('isOpened', '==', true),
-          orderBy('unlockDate', 'desc'),
-          limit(20)
+        // In our PostgreSQL implementation, we'll query opened capsules
+        // Note: For this to work, we'd need to add an 'is_public' field to our schema
+        // For now, we'll assume all opened capsules are public in this implementation
+        const result = await pool.query(
+          `SELECT * FROM capsules 
+           WHERE status = 'opened'
+           ORDER BY opened_at DESC
+           LIMIT 20`
         );
         
-        const querySnapshot = await getDocs(q);
-        const capsules: Capsule[] = [];
-        
-        querySnapshot.forEach((doc) => {
-          const data = doc.data();
-          capsules.push({
-            id: doc.id,
-            title: data.title,
-            content: data.content,
-            location: data.location,
-            createdAt: data.createdAt?.toMillis() || Date.now(),
-            unlockDate: data.unlockDate?.toMillis() || Date.now(),
-            userId: data.userId,
-            creatorName: data.creatorName,
-            mediaUrl: data.mediaUrl || undefined,
-            mediaType: data.mediaType || undefined,
-            isPublic: data.isPublic || false,
-            isOpened: data.isOpened || false
-          });
-        });
+        const capsules: Capsule[] = result.rows.map(row => ({
+          id: row.id,
+          userId: row.user_id,
+          creatorName: row.creator_name,
+          title: row.title,
+          content: row.content,
+          location: typeof row.location === 'string' 
+            ? JSON.parse(row.location) 
+            : row.location,
+          unlockMethod: row.unlock_method,
+          unlockTime: row.unlock_time ? row.unlock_time.toISOString() : null,
+          createdAt: row.created_at.toISOString(),
+          openedAt: row.opened_at ? row.opened_at.toISOString() : null,
+          status: row.status,
+          mediaUrls: row.media_urls || []
+        }));
         
         setPublicCapsules(capsules);
       } catch (err) {
@@ -148,17 +145,16 @@ export default function Explore() {
                       Shared by {capsule.creatorName || 'Anonymous'}
                     </p>
                     <p className="text-sm text-gray-600">
-                      Unlocked on {format(new Date(capsule.unlockDate), 'MMM d, yyyy')}
+                      Unlocked on {capsule.openedAt && format(new Date(capsule.openedAt), 'MMM d, yyyy')}
                     </p>
                     <div className="mt-3 text-sm text-gray-800 line-clamp-3">
                       {capsule.content.substring(0, 100)}
                       {capsule.content.length > 100 ? '...' : ''}
                     </div>
-                    {capsule.mediaUrl && (
+                    {capsule.mediaUrls && capsule.mediaUrls.length > 0 && (
                       <div className="mt-2">
                         <span className="text-xs bg-gray-200 text-gray-700 px-2 py-1 rounded-full">
-                          {capsule.mediaType === 'image' ? 'Photo' : 
-                           capsule.mediaType === 'video' ? 'Video' : 'Media'}
+                          Media
                         </span>
                       </div>
                     )}

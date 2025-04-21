@@ -1,5 +1,16 @@
+export interface User {
+  uid: string;
+  email: string;
+  displayName: string | null;
+  photoURL: string | null;
+}
+
+export type CapsuleStatus = 'sealed' | 'opened';
+
 export interface Capsule {
   id: string;
+  userId: string;
+  creatorName: string | null;
   title: string;
   content: string;
   location: {
@@ -7,14 +18,12 @@ export interface Capsule {
     longitude: number;
     name?: string;
   };
-  createdAt: number; // timestamp
-  unlockDate: number; // timestamp
-  userId: string;
-  creatorName?: string;
-  mediaUrl?: string;
-  mediaType?: 'image' | 'video' | 'audio';
-  isPublic: boolean;
-  isOpened: boolean;
+  unlockMethod: 'immediate' | 'time' | 'location';
+  unlockTime: string | null; // ISO string
+  createdAt: string; // ISO string
+  openedAt: string | null; // ISO string
+  status: CapsuleStatus;
+  mediaUrls: string[];
 }
 
 export interface CapsuleFormData {
@@ -25,9 +34,9 @@ export interface CapsuleFormData {
     longitude: number;
     name?: string;
   };
-  unlockDate: Date;
+  unlockMethod: 'immediate' | 'time' | 'location';
+  unlockTime?: string | null; // ISO string for time-based capsules
   mediaFile?: File | null;
-  isPublic: boolean;
 }
 
 export interface UserProfile {
@@ -37,5 +46,3 @@ export interface UserProfile {
   photoURL: string | null;
   createdAt: number;
 }
-
-export type CapsuleStatus = 'locked' | 'unlockable' | 'unlocked';

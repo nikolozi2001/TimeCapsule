@@ -3,7 +3,7 @@ import { useRouter } from 'next/router';
 import { format } from 'date-fns';
 import Layout from '@/components/Layout';
 import { useAuth } from '@/context/AuthContext';
-import { getUserCapsules, deleteCapsule } from '@/lib/capsuleService';
+import { getUserCapsules, deleteCapsule } from '@/lib/dataProvider';
 import { Capsule } from '@/types';
 
 export default function Dashboard() {
@@ -40,11 +40,11 @@ export default function Dashboard() {
     }
   }, [authLoading, user, router]);
 
-  const handleDeleteCapsule = async (capsule: Capsule) => {
+  const handleDeleteCapsule = async (capsuleId: string) => {
     if (window.confirm('Are you sure you want to delete this time capsule? This action cannot be undone.')) {
       try {
-        await deleteCapsule(capsule);
-        setCapsules(prevCapsules => prevCapsules.filter(c => c.id !== capsule.id));
+        await deleteCapsule(capsuleId);
+        setCapsules(prevCapsules => prevCapsules.filter(c => c.id !== capsuleId));
       } catch (err) {
         console.error('Error deleting capsule:', err);
         setError('Failed to delete the capsule. Please try again.');
@@ -58,9 +58,15 @@ export default function Dashboard() {
 
   // Categorize capsules for better organization
   const categorizedCapsules = {
-    unlocked: capsules.filter(c => c.isOpened),
-    locked: capsules.filter(c => !c.isOpened && new Date(c.unlockDate) > new Date()),
-    unlockable: capsules.filter(c => !c.isOpened && new Date(c.unlockDate) <= new Date()),
+    unlocked: capsules.filter(c => c.status === 'opened'),
+    locked: capsules.filter(c => c.status === 'sealed' && c.unlockMethod === 'time' && c.unlockTime && new Date(c.unlockTime) > new Date()),
+    unlockable: capsules.filter(c => {
+      if (c.status === 'sealed') {
+        if (c.unlockMethod === 'immediate') return true;
+        if (c.unlockMethod === 'time' && c.unlockTime && new Date(c.unlockTime) <= new Date()) return true;
+      }
+      return false;
+    }),
   };
 
   if (authLoading) {
@@ -121,7 +127,7 @@ export default function Dashboard() {
                           Unlock
                         </button>
                         <button
-                          onClick={() => handleDeleteCapsule(capsule)}
+                          onClick={() => handleDeleteCapsule(capsule.id)}
                           className="px-3 py-1 bg-white text-red-600 text-sm border border-red-300 rounded hover:bg-red-50"
                         >
                           Delete
@@ -150,7 +156,7 @@ export default function Dashboard() {
                         </span>
                       </div>
                       <p className="text-sm text-gray-600 mt-2">
-                        Unlocks on {format(new Date(capsule.unlockDate), 'MMM d, yyyy')}
+                        Unlocks on {capsule.unlockTime && format(new Date(capsule.unlockTime), 'MMM d, yyyy')}
                       </p>
                       <div className="mt-4 flex justify-end space-x-2">
                         <button
@@ -160,7 +166,7 @@ export default function Dashboard() {
                           View
                         </button>
                         <button
-                          onClick={() => handleDeleteCapsule(capsule)}
+                          onClick={() => handleDeleteCapsule(capsule.id)}
                           className="px-3 py-1 bg-white text-red-600 text-sm border border-red-300 rounded hover:bg-red-50"
                         >
                           Delete
@@ -189,7 +195,7 @@ export default function Dashboard() {
                         </span>
                       </div>
                       <p className="text-sm text-gray-600 mt-2">
-                        Unlocked on {format(new Date(capsule.unlockDate), 'MMM d, yyyy')}
+                        Unlocked on {capsule.openedAt && format(new Date(capsule.openedAt), 'MMM d, yyyy')}
                       </p>
                       <div className="mt-4 flex justify-end space-x-2">
                         <button
@@ -199,7 +205,7 @@ export default function Dashboard() {
                           View
                         </button>
                         <button
-                          onClick={() => handleDeleteCapsule(capsule)}
+                          onClick={() => handleDeleteCapsule(capsule.id)}
                           className="px-3 py-1 bg-white text-red-600 text-sm border border-red-300 rounded hover:bg-red-50"
                         >
                           Delete
