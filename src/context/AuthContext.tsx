@@ -21,19 +21,40 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Helper to safely access localStorage (only in browser context)
+const safeLocalStorage = {
+  getItem: (key: string): string | null => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem(key);
+    }
+    return null;
+  },
+  setItem: (key: string, value: string): void => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(key, value);
+    }
+  },
+  removeItem: (key: string): void => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem(key);
+    }
+  }
+};
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
+    // This effect only runs in the browser, not during SSR
     const unsubscribe = onAuthStateChanged((user) => {
       setUser(user);
       
       // Store user ID in localStorage for API authentication
       if (user) {
-        localStorage.setItem('uid', user.uid);
+        safeLocalStorage.setItem('uid', user.uid);
       } else {
-        localStorage.removeItem('uid');
+        safeLocalStorage.removeItem('uid');
       }
       
       setLoading(false);
@@ -63,7 +84,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = async () => {
     try {
       await signOut();
-      localStorage.removeItem('uid'); // Also clear from localStorage
+      safeLocalStorage.removeItem('uid'); // Also clear from localStorage
     } catch (error) {
       console.error('Error logging out:', error);
       throw error;

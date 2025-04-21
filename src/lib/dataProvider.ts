@@ -2,6 +2,16 @@
 import { apiClient } from './apiClient';
 import { Capsule, CapsuleFormData } from '@/types';
 
+// Safe storage accessor for cross-environment compatibility
+const safeStorage = {
+  getItem: (key: string): string | null => {
+    if (typeof window !== 'undefined') {
+      return window.localStorage.getItem(key);
+    }
+    return null;
+  }
+};
+
 // Create a new capsule
 export const createCapsule = async (
   userId: string,
@@ -22,7 +32,7 @@ export const getCapsuleById = async (capsuleId: string): Promise<Capsule | null>
   // where this is called. For now, we'll handle this by expecting it to be passed from the component.
   try {
     // Get user ID from local storage or context
-    const userId = window.localStorage.getItem('uid');
+    const userId = safeStorage.getItem('uid');
     if (!userId) {
       console.error('No user ID available for authentication');
       return null;
@@ -38,7 +48,7 @@ export const getCapsuleById = async (capsuleId: string): Promise<Capsule | null>
 // Open a capsule (mark as opened)
 export const openCapsule = async (capsuleId: string): Promise<boolean> => {
   try {
-    const userId = window.localStorage.getItem('uid');
+    const userId = safeStorage.getItem('uid');
     if (!userId) {
       console.error('No user ID available for authentication');
       return false;
@@ -54,7 +64,7 @@ export const openCapsule = async (capsuleId: string): Promise<boolean> => {
 // Delete a capsule
 export const deleteCapsule = async (capsuleId: string): Promise<boolean> => {
   try {
-    const userId = window.localStorage.getItem('uid');
+    const userId = safeStorage.getItem('uid');
     if (!userId) {
       console.error('No user ID available for authentication');
       return false;
@@ -73,7 +83,7 @@ export const checkCapsuleStatus = async (
   userLocation?: { latitude: number; longitude: number }
 ): Promise<{ canOpen: boolean; message: string }> => {
   try {
-    const userId = window.localStorage.getItem('uid');
+    const userId = safeStorage.getItem('uid');
     if (!userId) {
       return { canOpen: false, message: 'Authentication required' };
     }

@@ -1,8 +1,40 @@
 import { User } from '@/types';
 
+// Safe storage for browser environments
+const safeStorage = {
+  getItem: (key: string): string | null => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem(key);
+    }
+    return null;
+  },
+  setItem: (key: string, value: string): void => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(key, value);
+    }
+  },
+  removeItem: (key: string): void => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem(key);
+    }
+  }
+};
+
 // In-memory auth state (for client-side state management)
 let currentUser: User | null = null;
 const listeners = new Set<(user: User | null) => void>();
+
+// Initialize state from localStorage if we're in browser
+if (typeof window !== 'undefined') {
+  const savedUser = safeStorage.getItem('timecapsule_user');
+  if (savedUser) {
+    try {
+      currentUser = JSON.parse(savedUser);
+    } catch (e) {
+      safeStorage.removeItem('timecapsule_user');
+    }
+  }
+}
 
 /**
  * Client-side authentication service that communicates with our API endpoints
@@ -30,7 +62,8 @@ export const authClient = {
     notifyListeners();
     
     // Store in localStorage for persistence
-    localStorage.setItem('timecapsule_user', JSON.stringify(user));
+    safeStorage.setItem('timecapsule_user', JSON.stringify(user));
+    safeStorage.setItem('uid', user.uid); // Also store uid for API auth
     
     return user;
   },
@@ -57,7 +90,8 @@ export const authClient = {
     notifyListeners();
     
     // Store in localStorage for persistence
-    localStorage.setItem('timecapsule_user', JSON.stringify(user));
+    safeStorage.setItem('timecapsule_user', JSON.stringify(user));
+    safeStorage.setItem('uid', user.uid); // Also store uid for API auth
     
     return user;
   },
@@ -77,7 +111,8 @@ export const authClient = {
     notifyListeners();
     
     // Clear from localStorage
-    localStorage.removeItem('timecapsule_user');
+    safeStorage.removeItem('timecapsule_user');
+    safeStorage.removeItem('uid');
   },
   
   /**
@@ -85,14 +120,14 @@ export const authClient = {
    */
   getCurrentUser: async (): Promise<User | null> => {
     // For client-side, we use localStorage to maintain state between page reloads
-    if (!currentUser) {
-      const storedUser = localStorage.getItem('timecapsule_user');
+    if (!currentUser && typeof window !== 'undefined') {
+      const storedUser = safeStorage.getItem('timecapsule_user');
       if (storedUser) {
         try {
           currentUser = JSON.parse(storedUser);
           notifyListeners();
         } catch (e) {
-          localStorage.removeItem('timecapsule_user');
+          safeStorage.removeItem('timecapsule_user');
         }
       }
     }
@@ -130,7 +165,7 @@ export const authClient = {
       notifyListeners();
       
       // Update in localStorage
-      localStorage.setItem('timecapsule_user', JSON.stringify(currentUser));
+      safeStorage.setItem('timecapsule_user', JSON.stringify(currentUser));
     }
   },
   
